@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -62,19 +63,13 @@ def get_constraints_for_log(client, conf, nlp_helper, constraints, log: str):
 
 
 if __name__ == "__main__":
-    user: str = "rebmann"
-    password: str = "adhps3zv2LnMt06y"
-
+    from dotenv import load_dotenv
+    load_dotenv()
     from semconstmining.parsing.label_parser.nlp_helper import NlpHelper
     from semconstmining.main import get_resource_handler, get_or_mine_constraints
     from semconstmining.config import Config
-
     conf = Config(Path(__file__).parents[2].resolve(), "semantic_sap_sam_filtered")
     nlp_helper = NlpHelper(conf)
     resource_handler = get_resource_handler(conf, nlp_helper=nlp_helper)
-    # Define the connection string
-    db_uri: str = f"mongodb+srv://{user}:{password}@bpapp.6xuzdhw.mongodb.net/?retryWrites=true&w=majority&appName=BPApp"
-
-    client = get_db_client(db_uri)
-
+    client = get_db_client(os.environ.get('DB_URI'))
     check_status_and_populate_db(client, conf, resource_handler)

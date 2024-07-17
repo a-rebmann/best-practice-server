@@ -2,16 +2,18 @@ import json
 import os
 from pathlib import Path
 from typing import Union, List
+from uuid import uuid4
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
-from fastapi import FastAPI, Request, Body
+from fastapi import FastAPI, Body
+from dotenv import load_dotenv
 
 from app.boundary.configuremiddlewares import configure_middlewares
 from app.boundary.constraintmining import get_constraints_for_log
 from app.boundary.dbconnect import ConstraintRepository, FittedConstraintRepository, ViolationRepository
 from app.boundary.dbconnect import get_db_client
-from app.control.log_handling import get_variants
+from app.control.log_handling import get_variants, get_violated_variants
 from app.model.constraint import Constraint
 from app.control.constraint_checking import check_constraints
 
@@ -21,8 +23,10 @@ from semconstmining.config import Config
 
 from app.model.fittedConstraint import FittedConstraint
 from app.model.variant import Variant
+from app.model.violatedVariant import ViolatedVariant
 from app.model.violation import Violation
 
+load_dotenv()
 
 class Settings(BaseSettings):
     """
@@ -30,21 +34,19 @@ class Settings(BaseSettings):
     """
     # ## Uvicorn configuration
     # Host name to run under
-    host: str = "0.0.0.0"
+    host: str = os.environ.get('HOST', '0.0.0.0')
     # Port to run app on
-    port: int = 8000
+    port: int = int(os.environ.get('PORT', 8000))
     # Root path under which the app is accessed
-    root_path: str = "/api"
+    root_path: str = os.environ.get('ROOT_PATH', '')
     develop: bool = False
     n_workers: int = 1
     cors_origins: Union[str, None] = "*"
-
-    # Define the user and password TODO read from dotenv
-    user: str = "rebmann"
-    password: str = "adhps3zv2LnMt06y"
-
+    # Define the user and password
+    user: str = os.environ.get('DB_USER', '')
+    password: str = os.environ.get('DB_PASSWORD', '')
     # Define the connection string
-    db_uri: str = f"mongodb+srv://{user}:{password}@bpapp.6xuzdhw.mongodb.net/?retryWrites=true&w=majority&appName=BPApp"
+    db_uri: str = os.environ.get('DB_URI', '')
 
     log_path: str = "./data/logs/"
 
@@ -89,6 +91,10 @@ class ViolationCollection(BaseModel):
     violations: list[Violation]
 
 
+class ViolatedVariantCollection(BaseModel):
+    violated_variants: list[ViolatedVariant]
+
+
 class CheckingResult(BaseModel):
     object_level_violations: list[Violation]
     multi_object_violations: list[Violation]
@@ -101,6 +107,7 @@ def create_app(settings: Settings) -> FastAPI:
     Create a new FastAPI app from configuration in `settings`. This makes it easy to
     configure the app as well as create new instances for testing.
     """
+
     app = FastAPI()
     state = State.from_settings(settings)
     configure_middlewares(app, settings)
@@ -156,7 +163,8 @@ def create_app(settings: Settings) -> FastAPI:
         # get violations for constraints from database that are already stored
         violation_repository = ViolationRepository(
             database=app.state.state.db_client.get_database("bestPracticeData"))
-        stored_violations = list(violation_repository.find_by({"constraint_id": {"$in": constraint_ids}}))
+        stored_violations = list(violation_repository.find_by({"constraint.constraint_id": {"$in": constraint_ids},
+                                                               "log": log}))
         # remove constraint ids for which we already have violations
         constraint_ids = [c for c in constraint_ids if c not in [v.constraint_id for v in stored_violations]]
         constraintsToCheck = [c for c in constraintsToCheck if c.id in constraint_ids]
@@ -175,11 +183,25 @@ def create_app(settings: Settings) -> FastAPI:
             all_violations += new_violations
         return ViolationCollection(violations=all_violations).model_dump_json()
 
+    @app.post("/violations/variants")
+    def get_violated_log_variants(violation_ids: List[str] = Body()):
+        violation_repository = ViolationRepository(
+            database=app.state.state.db_client.get_database("bestPracticeData"))
+        stored_violations = list(violation_repository.find_by({"id": {"$in": violation_ids}}))
+        print(len(stored_violations), "violations found")
+        if len(stored_violations) == 0:
+            return VariantCollection(variants=[]).model_dump_json()
+        log = stored_violations[0].log
+        log_info = app.state.state.log_cache[log][1]
+        variants = get_variants(log, app.state.state.log_cache[log][0], app.state.state.miningconfig)
+        violated_variants = get_violated_variants(variants, log_info, stored_violations, app.state.state.miningconfig)
+        return ViolatedVariantCollection(violated_variants=violated_variants).model_dump_json()
+
     @app.post("/logs/variants")
     def get_log_variants(log: str = Body()):
         if log not in os.listdir(app.state.state.log_path):
             return json.dumps({"variants": []})
-        return VariantCollection(variants=get_variants(log, app.state.state.log_cache[log][0], app.state.state.miningconfig)).model_dump_json()
+        return VariantCollection(variants=get_variants(log, app.state.state.log_cache[log][0], app.state.state.miningconfig)[:10]).model_dump_json()
     return app
 
 

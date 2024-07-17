@@ -1,39 +1,40 @@
-from pandas import DataFrame
-from semconstmining.config import Config
-import numpy as np
+from pathlib import Path
 from uuid import uuid4
 
-from app.model.variant import Variant
+from semconstmining.parsing.label_parser.nlp_helper import NlpHelper
+from semconstmining.main import get_resource_handler, get_or_mine_constraints, get_log_and_info
+from semconstmining.config import Config
+
+from app.app import VariantCollection
+from app.boundary.dbconnect import get_db_client, ViolationRepository
+from app.control.log_handling import get_variants
 from app.model.violatedVariant import ViolatedVariant
 
 
-def get_variants(log, event_log: DataFrame, config: Config):
-    cases = event_log[config.XES_CASE].to_numpy()
-    activities = event_log[config.XES_NAME].to_numpy()
-    c_unq, c_ind, c_counts = np.unique(cases, return_index=True, return_counts=True)
-    variant_to_case = {}
-    for i in range(len(c_ind)):
-        si = c_ind[i]
-        ei = si + c_counts[i]
-        acts = tuple(activities[si:ei])
-        if acts not in variant_to_case:
-            variant_to_case[acts] = []
-        variant_to_case[acts].append(c_unq[i])
-    variants = []
-    for variant, cases in variant_to_case.items():
-        variants.append(Variant(id=str(uuid4()), log=log, activities=list(variant), frequency=len(cases), cases=cases))
-    return variants
-
-
-def get_violated_variants(variants, log_info, violations, conf):
+def test_violated_variants():
+    user: str = "rebmann"
+    password: str = "adhps3zv2LnMt06y"
+    conf = Config(Path(__file__).parents[1].resolve(), "semantic_sap_sam_filtered")
+    nlp_helper = NlpHelper(conf)
+    resource_handler = get_resource_handler(conf, nlp_helper=nlp_helper)
+    # Define the connection string
+    db_uri: str = f"mongodb+srv://{user}:{password}@bpapp.6xuzdhw.mongodb.net/?retryWrites=true&w=majority&appName=BPApp"
+    db_client = get_db_client(db_uri)
+    violation_repository = ViolationRepository(database=db_client.get_database("bestPracticeData"))
+    stored_violations = list(violation_repository.find_by({"frequency": {"$gte": 1}}))
+    print(len(stored_violations), "violations found")
+    if len(stored_violations) == 0:
+        return VariantCollection(variants=[]).model_dump_json()
+    log = stored_violations[0].log
+    event_log, log_info = get_log_and_info(conf=conf, nlp_helper=nlp_helper, process=log)
+    variants = get_variants(log, event_log, conf)
     violated_variants = []
     # we check per violation for which variants
     for variant in variants:
-        print("Variant", variant.id)
         any_violation = False
         activity_to_violations = {}
-        for violation in violations:
-            if set(violation.cases).intersection(variant.cases):
+        for violation in stored_violations:
+            if any([c in variant.cases for c in violation.cases]):
                 any_violation = True
                 print("Violation found")
                 for activity in variant.activities:
@@ -65,5 +66,7 @@ def get_violated_variants(variants, log_info, violations, conf):
         if any_violation:
             violated_variants.append(ViolatedVariant(id=str(uuid4()), variant=variant,
                                                      activities=activity_to_violations))
-    return violated_variants
+    return VariantCollection(variants=violated_variants).model_dump_json()
 
+
+test_violated_variants()
