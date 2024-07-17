@@ -153,7 +153,6 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.post("/violations")
     def get_violations(constraint_ids: List[str] = Body()):
-        print(constraint_ids)
         constraint_repository = FittedConstraintRepository(
             database=app.state.state.db_client.get_database("bestPracticeData"))
         constraintsToCheck = list(constraint_repository.find_by({"id": {"$in": constraint_ids}}))
@@ -163,10 +162,10 @@ def create_app(settings: Settings) -> FastAPI:
         # get violations for constraints from database that are already stored
         violation_repository = ViolationRepository(
             database=app.state.state.db_client.get_database("bestPracticeData"))
-        stored_violations = list(violation_repository.find_by({"constraint.constraint_id": {"$in": constraint_ids},
+        stored_violations = list(violation_repository.find_by({"constraint.id": {"$in": constraint_ids},
                                                                "log": log}))
         # remove constraint ids for which we already have violations
-        constraint_ids = [c for c in constraint_ids if c not in [v.constraint_id for v in stored_violations]]
+        constraint_ids = [c for c in constraint_ids if c not in [v.constraint.id for v in stored_violations]]
         constraintsToCheck = [c for c in constraintsToCheck if c.id in constraint_ids]
         all_violations = stored_violations
         if len(constraintsToCheck) > 0:

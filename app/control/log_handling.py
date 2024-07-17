@@ -29,13 +29,11 @@ def get_violated_variants(variants, log_info, violations, conf):
     violated_variants = []
     # we check per violation for which variants
     for variant in variants:
-        print("Variant", variant.id)
         any_violation = False
         activity_to_violations = {}
         for violation in violations:
             if set(violation.cases).intersection(variant.cases):
                 any_violation = True
-                print("Violation found")
                 for activity in variant.activities:
                     if activity not in activity_to_violations:
                         activity_to_violations[activity] = []
