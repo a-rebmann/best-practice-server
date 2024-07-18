@@ -69,6 +69,7 @@ class State(BaseModel):
         cls.db_client = get_db_client(settings.db_uri)
         cls.log_path = settings.log_path
         cls.miningconfig = Config(Path(__file__).parents[1].resolve(), "semantic_sap_sam_filtered")
+        check_data_directories_on_start(cls.miningconfig)
         cls.nlp_helper = NlpHelper(cls.miningconfig)
         cls.resource_handler = get_resource_handler(cls.miningconfig, cls.nlp_helper)
         cls.constraints = get_or_mine_constraints(cls.miningconfig, cls.resource_handler, min_support=1)
@@ -111,7 +112,6 @@ def create_app(settings: Settings) -> FastAPI:
 
     app = FastAPI()
     state = State.from_settings(settings)
-    check_data_directories_on_start(state.miningconfig)
     configure_middlewares(app, settings)
 
     @app.on_event("startup")
