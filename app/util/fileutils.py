@@ -20,7 +20,7 @@ def check_data_directories_on_start(conf: Config):
     if not os.path.exists(conf.DATA_DATASET):
         os.makedirs(conf.DATA_DATASET)
 
-    check files in the logs directory and unzip if necessary
+    # check files in the logs directory and unzip if necessary
     for file in os.listdir(conf.DATA_LOGS):
         if file.endswith(".zip"):
             with ZipFile(conf.DATA_LOGS / file, 'r') as zip_ref:
