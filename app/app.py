@@ -25,6 +25,7 @@ from app.model.fittedConstraint import FittedConstraint
 from app.model.variant import Variant
 from app.model.violatedVariant import ViolatedVariant
 from app.model.violation import Violation
+from app.util.fileutils import check_data_directories_on_start
 
 load_dotenv()
 
@@ -110,6 +111,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     app = FastAPI()
     state = State.from_settings(settings)
+    check_data_directories_on_start(state.miningconfig)
     configure_middlewares(app, settings)
 
     @app.on_event("startup")
@@ -122,7 +124,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.get("/logs")
     def get_all_logs():
-        return json.dumps({"logs": os.listdir(app.state.state.log_path)})
+        return json.dumps({"logs": [file for file in os.listdir(app.state.state.log_path) if file.endswith(".xes")]})
 
     @app.get("/constraints")
     def get_all_constraints():
@@ -148,7 +150,7 @@ def create_app(settings: Settings) -> FastAPI:
             get_constraints_for_log(client=app.state.state.db_client, conf=app.state.state.miningconfig,
                                     nlp_helper=app.state.state.nlp_helper, constraints=app.state.state.constraints,
                                     log=log)
-            res = FittedConstraintCollection(constraints=list(constraint_repository.find_by({"log": log})))
+            res = FittedConstraintCollection(constraints=list(constraint_repository.find_by({"log": log, "relevance": {"$gte": 0.8}})))
         return res.model_dump_json()
 
     @app.post("/violations")
