@@ -136,4 +136,7 @@ dmypy.json
 application.py
 *violations.csv
 
-data/
+*.csv
+*.xes
+*.pkl
+*all-MiniLM-L6-v2
