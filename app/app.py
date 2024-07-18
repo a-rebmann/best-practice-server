@@ -2,7 +2,6 @@ import json
 import os
 from pathlib import Path
 from typing import Union, List
-from uuid import uuid4
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
@@ -28,6 +27,7 @@ from app.model.violation import Violation
 from app.util.fileutils import check_data_directories_on_start
 
 load_dotenv()
+
 
 class Settings(BaseSettings):
     """

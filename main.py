@@ -1,8 +1,11 @@
 import uvicorn
 from app.app import SETTINGS
+import ssl
 
 
 if __name__ == "__main__":
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_context.load_cert_chain('cert.pem', keyfile='key.pem')
     uvicorn.run(
         "app.app:APP",
         host=SETTINGS.host,
@@ -12,4 +15,6 @@ if __name__ == "__main__":
         app_dir="",
         reload=SETTINGS.develop,
         workers=SETTINGS.n_workers,
+        ssl_keyfile='key.pem',
+        ssl_certfile='cert.pem'
     )
