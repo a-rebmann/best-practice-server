@@ -15,6 +15,6 @@ if __name__ == "__main__":
         app_dir="",
         reload=SETTINGS.develop,
         workers=SETTINGS.n_workers,
-        ssl_keyfile='key.pem',
-        ssl_certfile='cert.pem'
+        ssl_keyfile=SETTINGS.ssl_keyfile,
+        ssl_certfile=SETTINGS.ssl_certfile,
     )

@@ -140,3 +140,5 @@ application.py
 *.xes
 *.pkl
 *all-MiniLM-L6-v2
+
+ssl/

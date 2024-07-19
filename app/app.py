@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     port: int = int(os.environ.get('PORT', 8000))
     # Root path under which the app is accessed
     root_path: str = os.environ.get('ROOT_PATH', '')
+    # SSL key file
+    ssl_keyfile: str = os.environ.get('SSL_KEYFILE', '')
+    # SSL certificate file
+    ssl_certfile: str = os.environ.get('SSL_CERTFILE', '')
     develop: bool = False
     n_workers: int = 1
     cors_origins: Union[str, None] = "*"
