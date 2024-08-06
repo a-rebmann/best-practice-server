@@ -3,6 +3,7 @@ import os
 import shutil
 from pathlib import Path
 from typing import Union, List
+from uuid import uuid4
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
@@ -12,9 +13,8 @@ from dotenv import load_dotenv
 from app.boundary.ImageGenerator import ImageGenerator
 from app.boundary.SignavioAuthenticator import SignavioAuthenticator
 from app.boundary.configuremiddlewares import configure_middlewares
-from app.boundary.constraintmining import get_constraints_for_log, get_constraints_for_log_new
-from app.boundary.dbconnect import ConstraintRepository, FittedConstraintRepository, ViolationRepository, \
-    get_base_config, get_all_constraints
+from app.boundary.constraintmining import get_constraints_for_log_new
+from app.boundary.dbconnect import ConstraintRepository, FittedConstraintRepository, MatchingRepository, ViolationRepository, get_base_config
 from app.boundary.dbconnect import get_db_client
 from app.control.log_handling import get_variants, get_violated_variants
 from app.model.configuration import AppConfiguration
@@ -22,7 +22,7 @@ from app.model.constraint import Constraint
 from app.control.constraint_checking import check_constraints
 
 from semconstmining.parsing.label_parser.nlp_helper import NlpHelper
-from semconstmining.main import get_resource_handler, get_or_mine_constraints, get_log_and_info
+from semconstmining.main import get_resource_handler, get_log_and_info
 from semconstmining.config import Config
 
 from app.model.fittedConstraint import FittedConstraint
@@ -90,7 +90,6 @@ class State(BaseModel):
         check_data_directories_on_start(cls.miningconfig)
         cls.nlp_helper = NlpHelper(cls.miningconfig)
         cls.resource_handler = get_resource_handler(cls.miningconfig, cls.nlp_helper)
-        cls.constraints = get_or_mine_constraints(cls.miningconfig, cls.resource_handler, min_support=1)
         cls.signavio_auth = SignavioAuthenticator(settings.signavio_url, settings.signavio_user,
                                                   settings.signavio_password, settings.signavio_workspace)
         cls.log_cache = {}
@@ -175,11 +174,20 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.post("/constraints/new")
     def create_new_constraint(constraint: Constraint):
+        print(constraint.model_dump())
         # TODO prepare constraint for saving
-
-        # constraint_repository = ConstraintRepository(
-        #     database=app.state.state.db_client.get_database("bestPracticeData"))
-        # constraint_repository.save(constraint)
+        constraint.id = str(uuid4())
+        if constraint.right_operand == "":
+            constraint.arity = "Unary"
+            constraint.constraint_str = f"{constraint.constraint_type} [{constraint.left_operand}] | | |"
+        else:
+            constraint.arity = "Binary"
+            constraint.constraint_str = f"{constraint.constraint_type} [{constraint.left_operand}, {constraint.right_operand}] | | |"
+        constraint.provider = "user"
+        constraint.provision_type = "maually created"
+        constraint_repository = ConstraintRepository(
+              database=app.state.state.db_client.get_database("bestPracticeData"))
+        constraint_repository.save(constraint)
         return constraint.model_dump_json()
 
     class LogConf(BaseModel):
@@ -190,9 +198,9 @@ def create_app(settings: Settings) -> FastAPI:
         binary: bool
         constraint_levels: List[str]
 
+
     @app.put("/constraints/log")
     def get_all_constraints_log(log_conf: LogConf):
-        print(log_conf.dict())
         if log_conf.log not in os.listdir(app.state.state.log_path):
             return json.dumps({"constraints": []})
         # load the log from disk into cache
@@ -211,28 +219,40 @@ def create_app(settings: Settings) -> FastAPI:
             arities.append(app.state.state.miningconfig.UNARY)
         if log_conf.binary:
             arities.append(app.state.state.miningconfig.BINARY)
+
+        matching_repository = MatchingRepository(
+            database=app.state.state.db_client.get_database("bestPracticeData"))
+        matchings=list(matching_repository.find_by({"log_id": log_conf.log}))
+        if len(matchings) > 0:
+            matching = matchings[0]
+            already_fitted = matching.considered_constraints
+        else:
+            already_fitted = []
+
+        query = {"level": {"$in": log_conf.constraint_levels},
+                "support": {"$gte": log_conf.min_support},
+                "arity": {"$in": arities},
+                "support": {"$gte": log_conf.min_support},
+                "id": {"$nin": already_fitted}}    
+        print(len(already_fitted), "constraints already fitted")
+        get_constraints_for_log_new(db_client=app.state.state.db_client,
+                                    config=app.state.state.miningconfig,
+                                    nlp_helper=app.state.state.nlp_helper,
+                                    log_info=app.state.state.log_cache[log_conf.log][1],
+                                    query=query)
+        
         fitted_constraint_repository = FittedConstraintRepository(
             database=app.state.state.db_client.get_database("bestPracticeData"))
+        
+        query = {"log": log_conf.log,
+                "relevance": {"$gte": log_conf.min_relevance},
+                "constraint.level": {"$in": log_conf.constraint_levels},
+                "constraint.support": {"$gte": log_conf.min_support},
+                "constraint.arity": {"$in": arities},
+                "constraint.support": {"$gte": log_conf.min_support},
+                "id": {"$nin": already_fitted}}
         res = FittedConstraintCollection(
-            constraints=list(
-                fitted_constraint_repository.find_by({"log": log_conf.log,
-                                                      "relevance": {"$gte": log_conf.min_relevance},
-                                                      "constraint.level": {"$in": log_conf.constraint_levels},
-                                                      "constraint.support": {"$gte": log_conf.min_support},
-                                                        "constraint.arity": {"$in": arities}})))
-
-        if len(res.constraints) == 0:
-            get_constraints_for_log_new(db_client=app.state.state.db_client,
-                                        config=app.state.state.miningconfig,
-                                        nlp_helper=app.state.state.nlp_helper,
-                                        log_info=app.state.state.log_cache[log_conf.log][1])
-            res = FittedConstraintCollection(
-                constraints=list(
-                    fitted_constraint_repository.find_by({"log": log_conf.log,
-                                                          "relevance": {"$gte": log_conf.min_relevance},
-                                                          "constraint.level": {"$in": log_conf.constraint_levels},
-                                                          "constraint.support": {"$gte": log_conf.min_support},
-                                                          "constraint.arity": {"$in": arities}})))
+            constraints=list(fitted_constraint_repository.find_by(query)))
         return res.model_dump_json()
 
     @app.post("/violations")
@@ -281,8 +301,8 @@ def create_app(settings: Settings) -> FastAPI:
         violated_variants = get_violated_variants(variants, log_info, stored_violations, app.state.state.miningconfig)
         if len(violated_variants) > 100:
             # sort descending by frequency
-            violated_variants = sorted(violated_variants, key=lambda x: x.frequency, reverse=True)
-        return ViolatedVariantCollection(violated_variants=violated_variants).model_dump_json()
+            violated_variants = sorted(violated_variants, key=lambda x: x.variant.frequency, reverse=True)
+        return ViolatedVariantCollection(violated_variants=violated_variants[:10]).model_dump_json()
 
     @app.post("/logs/variants")
     def get_log_variants(log: str = Body()):

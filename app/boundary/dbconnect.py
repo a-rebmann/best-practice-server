@@ -7,6 +7,7 @@ from pydantic_mongo import AbstractRepository
 from app.model.configuration import AppConfiguration
 from app.model.constraint import Constraint
 from app.model.fittedConstraint import FittedConstraint
+from app.model.matching import Matching
 from app.model.violation import Violation
 
 
@@ -28,6 +29,11 @@ class ViolationRepository(AbstractRepository[Violation]):
 class AppConfigurationRepository(AbstractRepository[AppConfiguration]):
     class Meta:
         collection_name = "configurations"
+
+
+class MatchingRepository(AbstractRepository[Matching]):
+    class Meta:
+        collection_name = "matchings"
 
 
 def get_all_constraints(client):

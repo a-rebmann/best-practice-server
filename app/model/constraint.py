@@ -12,3 +12,5 @@ class Constraint(BaseModel):
     object_type: str
     processmodel_id: str
     support: int
+    provision_type: str
+    provider: str
