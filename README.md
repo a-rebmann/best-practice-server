@@ -21,6 +21,7 @@ Regardless to the installation you need to create an database called "bestPracti
 3. Create a <code>.env</code> file in the root of the project with the following environment variables:
 
 <code>
+    
     HOST=0.0.0.0
     PORT=8000
     ROOT_PATH=/api
@@ -30,7 +31,6 @@ Regardless to the installation you need to create an database called "bestPracti
     SSL_KEY_PATH=path/to/ssl-key (optional)
     SSL_CERT_PATH=path/to/ssl-cert (optional)
     DEVELOPMENT=true/false
-
     SIGNAVIO_USER=[RELACE WITH YOUR SIGNAVIO ACADEMIC USER] (optional, needed for process model viewer)
     SIGNAVIO_PASSWORD=[RELACE WITH YOUR SIGNAVIO ACADEMIC PASSWORD] (optional, needed for process model viewer)
     SIGNAVIO_URL=https://academic.signavio.com
