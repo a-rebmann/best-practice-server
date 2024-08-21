@@ -10,7 +10,7 @@ For the front end code see [here](https://github.com/a-rebmann/best-practice-cli
 We use a MongoDB database in the cloud.
 Follow [this](https://www.mongodb.com/lp/cloud/atlas/try4?utm_source=google&utm_campaign=search_gs_pl_evergreen_atlas_general_prosp-brand_gic-null_emea-de_ps-all_desktop_eng_lead&utm_term=mongo%20db%20tutorial&utm_medium=cpc_paid_search&utm_ad=p&utm_ad_campaign_id=1718986504&adgroup=80209773523&cq_cmp=1718986504&gad_source=1&gclid=CjwKCAjwoJa2BhBPEiwA0l0ImBnvBOpK75OlXLZ_jS8SyWF8RPRV3P51XbR42xK1r1IHvmwTXRTY8xoCJa0QAvD_BwE) tutorial if you want to do the same.
 
-You can anturally also setup a local database, e.g., as a Docker container (see [here](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-community-with-docker/)).
+You can naturally also setup a local database, e.g., as a Docker container (see [here](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-community-with-docker/)).
 
 Regardless to the installation you need to create an database called "bestPracticeData".
 
