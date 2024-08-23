@@ -1,6 +1,7 @@
 # Best-Practice Checker
 
 This repository contains the code of the server of the Best-Practice Checker. 
+For the underlying framework, plese see [this manuscript](https://arxiv.org/pdf/2407.02336)
 This README provides instructions to setup the back end as well as the reuqired data base
 
 For the front end code see [here](https://github.com/a-rebmann/best-practice-client-)
