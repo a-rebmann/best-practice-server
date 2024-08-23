@@ -19,9 +19,8 @@ Regardless to the installation you need to create an database called "bestPracti
 1. Create a Python virtual environment (we used Python 3.12)
 2. Install the dependencies in requirements.txt
 3. Create a <code>.env</code> file in the root of the project with the following environment variables:
-<code>
-    
-    HOST=0.0.0.0
+<
+code>HOST=0.0.0.0
     PORT=8000
     ROOT_PATH=/api
     DB_USER=[RELACE WITH YOUR DB USER]
@@ -33,7 +32,8 @@ Regardless to the installation you need to create an database called "bestPracti
     SIGNAVIO_USER=[REPLACE WITH YOUR SIGNAVIO ACADEMIC USER] (optional, needed for process model viewer)
     SIGNAVIO_PASSWORD=[REPLACE WITH YOUR SIGNAVIO ACADEMIC PASSWORD] (optional, needed for process model viewer)
     SIGNAVIO_URL=https://academic.signavio.com
-    SIGNAVIO_WORKSPACE=[REPLACE WITH YOUR SIGNAVIO ACADEMIC WORKSPACE] (optional, needed for process model viewer)
-</code>
-4. Run <code>python main.py</code> from the root.
+    SIGNAVIO_WORKSPACE=[REPLACE WITH YOUR SIGNAVIO ACADEMIC WORKSPACE] (optional, needed for process model viewer)</code>
+
+4. In order to populate you database with the best-practice collection, run <code>python miner.py</code>     from the root of the project
+5. Run <code>python main.py</code> from the root of the project.
 
