@@ -19,8 +19,7 @@ Regardless to the installation you need to create an database called "bestPracti
 1. Create a Python virtual environment (we used Python 3.12)
 2. Install the dependencies in requirements.txt
 3. Create a <code>.env</code> file in the root of the project with the following environment variables:
-<
-code>HOST=0.0.0.0
+<code>HOST=0.0.0.0
     PORT=8000
     ROOT_PATH=/api
     DB_USER=[RELACE WITH YOUR DB USER]
