@@ -24,6 +24,7 @@ from app.control.constraint_checking import check_constraints
 from semconstmining.parsing.label_parser.nlp_helper import NlpHelper
 from semconstmining.main import get_resource_handler, get_log_and_info
 from semconstmining.config import Config
+from semconstmining.selection.instantiation.recommendation_config import RecommendationConfig
 
 from app.model.fittedConstraint import FittedConstraint
 from app.model.variant import Variant
@@ -222,9 +223,10 @@ def create_app(settings: Settings) -> FastAPI:
 
         matching_repository = MatchingRepository(
             database=app.state.state.db_client.get_database("bestPracticeData"))
-        matchings=list(matching_repository.find_by({"log_id": log_conf.log}))
+        matchings=list(matching_repository.find_by({"log_id": log_conf.log}, sort=[("time_of_matching", -1)]))
         if len(matchings) > 0:
             matching = matchings[0]
+            print("Matched on ", matching.time_of_matching)
             already_fitted = matching.considered_constraints
         else:
             already_fitted = []
@@ -235,11 +237,13 @@ def create_app(settings: Settings) -> FastAPI:
                 "support": {"$gte": log_conf.min_support},
                 "id": {"$nin": already_fitted}}    
         print(len(already_fitted), "constraints already fitted")
+        rec_config = RecommendationConfig(app.state.state.miningconfig, semantic_weight=log_conf.min_relevance, top_k=250)
         get_constraints_for_log_new(db_client=app.state.state.db_client,
                                     config=app.state.state.miningconfig,
                                     nlp_helper=app.state.state.nlp_helper,
                                     log_info=app.state.state.log_cache[log_conf.log][1],
-                                    query=query)
+                                    query=query,
+                                    rec_config=rec_config)
         
         fitted_constraint_repository = FittedConstraintRepository(
             database=app.state.state.db_client.get_database("bestPracticeData"))

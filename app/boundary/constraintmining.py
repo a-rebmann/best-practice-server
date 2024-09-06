@@ -5,7 +5,7 @@ from app.control.recommender import Recommender
 from app.control.constraint_fitter import FittedConstraintGenerator
 from app.control.similarity_computer import SimilarityComputer
 from app.control.util import ok
-from semconstmining.selection.instantiation.recommendation_config import RecommendationConfig
+
 
 from app.boundary.dbconnect import ConstraintRepository, FittedConstraintRepository, MatchingRepository
 from app.model.fittedConstraint import FittedConstraint
@@ -47,28 +47,36 @@ def recommend_constraints(config, rec_config, constraints, log_info):
     return recommended_constraints
 
 
-def get_constraints_for_log_new(db_client, config, nlp_helper, log_info, query):
+def get_constraints_for_log_new(db_client, config, nlp_helper, log_info, query, rec_config):
     constraint_repository = ConstraintRepository(database=db_client.get_database("bestPracticeData"))
+    obj_query = query.copy()
+    obj_query["level"] = config.OBJECT
+    obj_constraints = list(constraint_repository.find_by(obj_query))
 
-    obj_constraints = list(constraint_repository.find_by(query))
-    multi_obj_constraints = list(constraint_repository.find_by(query))
-    act_constraints = list(constraint_repository.find_by(query))
-    res_constraints = list(constraint_repository.find_by(query))
+    multi_obj_query = query.copy()
+    multi_obj_query["level"] = config.MULTI_OBJECT
+    multi_obj_constraints = list(constraint_repository.find_by(multi_obj_query))
+
+    act_query = query.copy()
+    act_query["level"] = config.ACTIVITY
+    act_constraints = list(constraint_repository.find_by(act_query))
+
+    res_query = query.copy()
+    res_query["level"] = config.RESOURCE
+    res_constraints = list(constraint_repository.find_by(res_query))
     objects, labels, resources = get_constraint_components(config, obj_constraints, multi_obj_constraints,
                                                            act_constraints, res_constraints)
     nlp_helper.pre_compute_embeddings(sentences=objects + labels + resources)
-    rec_config = RecommendationConfig(config, semantic_weight=0.9, top_k=250)
-
     constraints_with_similarity = compute_relevance(config, nlp_helper, obj_constraints, multi_obj_constraints,
                                                     act_constraints, res_constraints, objects, labels, resources,
                                                     log_info, precompute=True)
     matching_repository = MatchingRepository(database=db_client.get_database("bestPracticeData"))
-    matchings=list(matching_repository.find_by({"log": log_info.log_id}))
-    if len(matchings) > 0:
-        matching_repository.delete_by_id(matchings[0].id)
+    considered_consts = obj_constraints + multi_obj_constraints + act_constraints + res_constraints
+    cons_ids = [constraint.id for constraint in considered_consts]
+    const_ids = cons_ids + query["id"]["$nin"]
     matching_repository.save(Matching(id=str(uuid4()), 
                                         log_id=log_info.log_id, 
-                                        considered_constraints=[constraint.id for constraint in obj_constraints + multi_obj_constraints + act_constraints + res_constraints],
+                                        considered_constraints=const_ids,
                                         time_of_matching=datetime.now()
                                         ))
     recommended_constraints = recommend_constraints(config, rec_config, constraints_with_similarity, log_info)
